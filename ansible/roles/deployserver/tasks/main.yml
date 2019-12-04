@@ -1,0 +1,7 @@
+---
+
+- name: Prepare
+  include: prepare.yml
+
+- name: bootup
+  include: bootup.yml

@@ -1,0 +1,81 @@
+---
+
+- include: cleanup.yml vm="{{ infraserver }}"
+  when:
+    - cleanup == true
+
+- name: List VMs
+  virt:
+    command: list_vms
+  register: virt_vms
+
+- block:
+  - name: Delete tmp file
+    file:
+      path: "{{ tmpfile }}"
+      state: absent
+
+  - name: Write disk params into tmp file
+    shell: |
+      echo -n "--disk path={{ vm_dir }}/{{ infraserver.vm_name }}-{{ index }}.qcow2,size={{ item }},format=qcow2,sparse=true,cache=none,bus=virtio " >> "{{ tmpfile }}"
+    loop: "{{ infraserver.disks|flatten(levels=1) }}"
+    loop_control:
+      index_var: index
+
+  - name: Get disk param
+    shell: cat "{{ tmpfile }}"
+    register: diskparams
+
+  - name: Prepare kickstart config
+    vars:
+      item: "{{ infraserver }}"
+    template:
+      src: "ks-{{ base_distro.type }}.cfg.j2"
+      dest: "{{ cache_dir }}/{{ infraserver.vm_name }}-ks.cfg"
+
+  vars:
+    tmpfile: "{{ cache_dir }}/{{ infraserver.vm_name }}-disks"
+  when:
+    - infraserver.vm_name not in virt_vms.list_vms
+
+- name: Create VM [ "{{ infraserver.vm_name }}" ]
+  vars:
+    main_ver: '{{ base_distro.version.split(".")[0] }}'
+    minor_ver: '{{ base_distro.version.split(".")[-1] }}'
+    filename: "CentOS-{{ main_ver }}-x86_64-Minimal-{{ minor_ver }}.iso"
+  command: virt-install
+           --accelerate
+           --hvm
+           --virt-type kvm
+           --name {{ infraserver.vm_name }}
+           --memory {{ infraserver.mem }}
+           --vcpus {{ infraserver.vcpu }}
+           --network bridge={{ pxebr }}
+           {{ diskparams.stdout }}
+           --os-type linux
+           --os-variant {{ base_distro.os_variant }}
+           --boot hd
+           --serial pty
+           --console pty
+           --noautoconsole
+           --noreboot
+           --graphics none
+           --wait -1
+           --location {{ cache_dir }}/{{ filename }}
+           --initrd-inject {{ cache_dir }}/{{ infraserver.vm_name }}-ks.cfg
+           --extra-args "inst.ks=file:/{{ infraserver.vm_name }}-ks.cfg console=ttyS0,115200n8"
+  when: infraserver.vm_name not in virt_vms.list_vms
+
+
+- name: Get guest info
+  virt:
+    command: info
+  register: virt_info
+
+- name: Make sure the VM is running
+  virt:
+    name: "{{infraserver.vm_name}}"
+    command: start
+  when: virt_info[infraserver.vm_name]['state'] != 'running'
+
+

@@ -1,0 +1,29 @@
+---
+
+- name: List VMs for cleanup
+  virt:
+    command: list_vms
+  register: virt_vms
+
+- name: Destroy the old VM [ "{{ vm.vm_name }}" ]
+  virt:
+    name: "{{ vm.vm_name }}"
+    state: destroyed
+  when:
+    - vm.vm_name in virt_vms.list_vms
+
+- name: Delete the old VM [ "{{ vm.vm_name }}" ]
+  virt:
+    name: "{{ vm.vm_name }}"
+    command: undefine
+  when:
+    - vm.vm_name in virt_vms.list_vms
+
+- name: Delete old image files of VM [ "{{ vm.vm_name }}" ]
+  file:
+    path: "{{ vm_dir }}/{{ vm.vm_name }}-{{ index }}.qcow2"
+    state: absent
+  loop: "{{ vm.disks|flatten(levels=1) }}"
+  loop_control:
+    index_var: index
+

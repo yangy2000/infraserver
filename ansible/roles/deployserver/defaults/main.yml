@@ -1,0 +1,47 @@
+---
+
+virtual_networks:
+  - name: vnet1
+    cidr: 192.168.100.0/24
+    create_gateway: true
+    dhcp: false
+    nat: true
+
+# custum_yum_repos:
+#   - name: "centos-base"
+#     path: http://mirror.centos.org/centos/7/os/x86_64/
+
+qemu_user: "qemu"
+
+vm_dir: "/home/{{ qemu_user }}/vms"
+cache_dir: "/home/{{ qemu_user }}/cache"
+
+base_distro:
+  type: centos
+  version: 7.4.1708
+  os_variant: rhel7
+
+cleanup: true
+
+pxebr: pxebr
+
+infraserver:
+  vm_name: deployserver
+  vcpu: 4
+  mem: 8192
+  disks:
+    - 100
+    - 200
+  pxebr: pxebr
+  fixed_ip: 10.20.0.2
+  netmask: 255.255.255.0
+  gateway: 10.20.0.1
+  dhcp_range:
+    start: 10.20.0.10
+    end: 10.20.0.200
+  dns_servers:
+    - 8.8.8.8
+    - 114.114.114.114
+
+    
+        

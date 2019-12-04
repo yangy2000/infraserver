@@ -1,0 +1,56 @@
+---
+
+- name: Add custom repositories into the same file
+  yum_repository:
+    name: "{{ item.name }}"
+    description: "YUM repo {{ item.name }}"
+    file: "custom_repos"
+    baseurl: "{{ item.path }}"
+    enabled: yes
+  with_items:
+    - "{{ custum_yum_repos }}"
+  when:
+    - custum_yum_repos is defined and custum_yum_repos != None
+
+- name: Install packages
+  vars:
+    packages:
+      - libvirt
+      - qemu-kvm
+      - sshpass
+  yum:
+    name: "{{ packages }}"
+    state: present
+
+- name: Start libvirt service
+  systemd:
+    name: libvirtd
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  no_log: true
+
+- name: Create directories for qemu user
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ qemu_user }}"
+    group: "{{ qemu_user }}"
+  with_items:
+    - "/home/{{ qemu_user }}"
+    - "{{ vm_dir }}"
+    - "{{ cache_dir }}"
+
+- name: Download ISO with checksum url
+  vars:
+    base_url: "http://archive.kernel.org/centos-vault/{{ base_distro.version }}/isos/x86_64/"
+    main_ver: '{{ base_distro.version.split(".")[0] }}'
+    minor_ver: '{{ base_distro.version.split(".")[-1] }}'
+    filename: "CentOS-{{ main_ver }}-x86_64-Minimal-{{ minor_ver }}.iso"
+  get_url:
+    url: "{{ base_url }}/{{ filename }}"
+    dest: "{{ cache_dir }}/{{ filename }}"
+    checksum: "sha256:{{ base_url }}/sha256sum.txt"
+  when: base_distro.type == "centos"
+
