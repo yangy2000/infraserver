@@ -1,0 +1,8 @@
+- name: Setup the deployserver
+  hosts: >
+    localhost
+  gather_facts: false
+  become: true
+  roles:
+  - role: deployserver
+
